@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>闹钟</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f2f5;
+        }
+        .container {
+            text-align: center;
+            background: white;
+            padding: 40px;
+            border-radius: 24px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.08);
+            width: 320px;
+            transition: background-color 0.3s;
+        }
+        #current-time {
+            font-size: 3.5rem;
+            font-weight: bold;
+            color: #007AFF;
+            margin-bottom: 20px;
+            font-variant-numeric: tabular-nums;
+        }
+        .settings { margin-bottom: 25px; }
+        label { display: block; margin-bottom: 8px; color: #65676b; font-size: 0.9rem; }
+        input[type="time"] {
+            font-size: 2rem;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 12px;
+            width: 100%;
+            text-align: center;
+            outline: none;
+        }
+        .btn-group { display: flex; flex-direction: column; gap: 12px; }
+        button {
+            padding: 14px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+        }
+        .set-btn { background-color: #34c759; color: white; }
+        .set-btn.active { background-color: #28a745; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2); }
+        .stop-btn { background-color: #ff3b30; color: white; }
+        #status { margin-top: 20px; font-size: 0.95rem; font-weight: 500; min-height: 1.2em; color: #65676b; }
+        
+        /* 响起时的视觉反馈 */
+        .ringing { animation: bg-flash 1s infinite; }
+        @keyframes bg-flash {
+            0% { background-color: white; }
+            50% { background-color: #ffebeb; }
+            100% { background-color: white; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container" id="main-card">
+    <div id="current-time">00:00:00</div>
+    
+    <div class="settings">
+        <label>设定响铃时间</label>
+        <input type="time" id="alarm-time" value="00:00">
+    </div>
+
+    <div class="btn-group">
+        <button class="set-btn" id="btn-set" onclick="startAlarm()">设定闹钟</button>
+        <button class="stop-btn" id="btn-stop" onclick="cancelAlarm()">关闭闹钟</button>
+    </div>
+
+    <div id="status">等待设定...</div>
+</div>
+
+<audio id="beep-sound" loop>
+    <source src="https://assets.piliapp.com/s3pxy/timer/beep2.mp3" type="audio/mpeg">
+</audio>
+
+<script>
+    const timeDisplay = document.getElementById('current-time');
+    const alarmInput = document.getElementById('alarm-time');
+    const statusDisplay = document.getElementById('status');
+    const setBtn = document.getElementById('btn-set');
+    const card = document.getElementById('main-card');
+    const audio = document.getElementById('beep-sound');
+
+    let alarmTime = null;
+    let isRinging = false;
+    let autoStopTimer = null; // 用于存放自动停止的定时器
+
+    function updateTime() {
+        const now = new Date();
+        const h = String(now.getHours()).padStart(2, '0');
+        const m = String(now.getMinutes()).padStart(2, '0');
+        const s = String(now.getSeconds()).padStart(2, '0');
+        const nowStr = `${h}:${m}:${s}`;
+        const nowShort = `${h}:${m}`;
+
+        timeDisplay.textContent = nowStr;
+
+        // 检查是否到点（且当前没有在响铃）
+        if (alarmTime === nowShort && !isRinging) {
+            triggerAlarm();
+        }
+    }
+
+    function startAlarm() {
+        // 先清除之前的状态以防万一
+        cancelAlarm();
+        
+        alarmTime = alarmInput.value;
+        statusDisplay.textContent = "✅ 闹钟已开启：" + alarmTime;
+        statusDisplay.style.color = "#28a745";
+        setBtn.classList.add('active');
+        
+        // 预激活音频
+        audio.play().then(() => { audio.pause(); audio.currentTime = 0; }).catch(e => {});
+    }
+
+    function triggerAlarm() {
+        isRinging = true;
+        audio.play();
+        card.classList.add('ringing');
+        statusDisplay.textContent = "⏰ 响铃中 (1分钟后自动停止)";
+        statusDisplay.style.color = "#ff3b30";
+
+        // 核心逻辑：设定 60000 毫秒后自动关闭
+        autoStopTimer = setTimeout(() => {
+            if (isRinging) {
+                console.log("闹钟已响满1分钟，自动停止");
+                cancelAlarm();
+                statusDisplay.textContent = "闹钟已自动停止";
+            }
+        }, 60000); 
+    }
+
+    function cancelAlarm() {
+        // 清除自动停止定时器
+        if (autoStopTimer) {
+            clearTimeout(autoStopTimer);
+            autoStopTimer = null;
+        }
+
+        alarmTime = null;
+        isRinging = false;
+        audio.pause();
+        audio.currentTime = 0;
+        
+        statusDisplay.textContent = "已关闭 (时间已保留)";
+        statusDisplay.style.color = "#65676b";
+        setBtn.classList.remove('active');
+        card.classList.remove('ringing');
+    }
+
+    setInterval(updateTime, 1000);
+    updateTime();
+</script>
+
+</body>
+</html>
